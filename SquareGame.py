@@ -1,8 +1,10 @@
 import random, pygame, sys
 from pygame.locals import *
+import copy
+from minimax import *
 
 FPS = 30 # frames per second, the general speed of the program
-GRIDSIZE=5
+GRIDSIZE=3
 BOXSIZE=60
 XMARGIN=15
 YMARGIN=XMARGIN
@@ -43,7 +45,10 @@ def main():
     comp=player(BLUE);
     human=player(RED);
     players=[comp,human];
-    
+    #initialize ai object
+    ai=AI(comp,human,1,game_over,state_score,blank_spots,new_state)
+
+
     while True:
         mouseClicked = False
 
@@ -69,13 +74,14 @@ def main():
                 GameBoard.empty_spots.remove((boxx,boxy))
                 #GameBoard.grid[boxx][boxy]='f' #now it's full
                 #print "you just placed: ",boxx, boxy
-                CheckForFormedSquare(human,(boxx,boxy)) #and updates the score accordingly
-                human.placed.append((boxx,boxy))
+                human.update((boxx,boxy))
                 
-                a=comp_turn(GameBoard,comp,human) #checks for square and updates
+                #print state_score([human,comp],human,comp)
+                                #print "empty spots ", GameBoard.empty_spots
+                a=comp_turn(ai,GameBoard,comp,human) #checks for square and updates
                 if a==False:
                     GameEnd(comp,human)
-
+        
                     
                 
         pygame.display.update()
@@ -111,16 +117,27 @@ def drawBoard(GameBoard,comp,human):
 class player(object):
     def __init__(self,color):
         self.placed=[] #placed tokens, a list of tuples (row,column)
-        self.squares=[]
         self.score=0;
         self.color=color
+    def __copy__(self):
+        new_guy=player(self.color)
+        new_guy.placed=copy.deepcopy(self.placed)
+        new_guy.score=copy.deepcopy(self.score)
+        return new_guy
     def update_score(self,side_len):
         self.score+=(side_len)**2
+    def update(self,move):
+        CheckForFormedSquare(self,move)
+        self.placed.append(move)
+
 
 class Board(object):
-        def __init__(self):
-            #Board.grid=[['e']*GRIDSIZE for __ in range(GRIDSIZE)]
-            Board.empty_spots=[(x,y) for x in range(GRIDSIZE) for y in range(GRIDSIZE)]
+    def __init__(self):
+        Board.empty_spots=[(x,y) for x in range(GRIDSIZE) for y in range(GRIDSIZE)];
+    def __copy__(self):
+        newBoard=Board();
+        newBoard.empty_spots=copy.copy(self.empty_spots);
+        return newBoard
 
 def getBoxAtPixel(x, y):
 
@@ -137,7 +154,7 @@ def getPixelAtBox(boxx, boxy):
     y=TOPMARGIN+boxy*BOXSIZE+BOXSIZE/2
     return(x,y)
 
-def comp_turn(GameBoard,comp,human):
+def comp_turn_dumb(GameBoard,comp,human):
     #find a random empty spot and go into it
     #get empty spots:
     if len(GameBoard.empty_spots)==0:
@@ -154,13 +171,38 @@ def comp_turn(GameBoard,comp,human):
     GameBoard.empty_spots.remove((boxx,boxy))
     return True
 
+def comp_turn(ai,GameBoard,comp,human):
+    if len(GameBoard.empty_spots)==0:
+        return False
+    #store old gameboard
+    orig_empty_spots=copy.deepcopy(GameBoard.empty_spots)
+
+    #print "before:", comp.score
+    score,ai_move=ai.get_move([human,comp,GameBoard]);
+    print ai_move
+    
+    
+    GameBoard.empty_spots=orig_empty_spots
+    
+    
+    comp.update(ai_move)    
+     
+    GameBoard.empty_spots.remove(ai_move)
+    
+    #print "after:", comp.score
+    return True
+
+
 def CheckForFormedSquare(player,(boxx,boxy)):
     #just do this naively
     tokens=player.placed[:] #list of tokens
+    print player.color," proposed move:",(boxx,boxy)
     for token in tokens:
         #check for vertical line
         if(token[0]==boxx): #on the same same vertical value
-            side_len=token[1]-boxy            
+            side_len=token[1]-boxy
+            if(side_len==0):
+                continue
         #    print token, side_len
              #look for the two possible boxes it could have made:
              #each time remove some token so that the same square won't be counted twice
@@ -168,19 +210,55 @@ def CheckForFormedSquare(player,(boxx,boxy)):
             needed_token1=(boxx+side_len,boxy)
             needed_token2=(boxx+side_len,boxy+side_len) 
             if (needed_token1 in tokens) and (needed_token2 in tokens):
-                #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
-                player.update_score(side_len+1)
-                player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
+                print 'found square:',(boxx,boxy),token,needed_token1,needed_token2 
+                print "side lenth is ", side_len
+                player.update_score(abs(side_len)+1)
+                #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
                 
             needed_token1=(boxx-side_len,boxy)
             needed_token2=(boxx-side_len,boxy+side_len)
             if (needed_token1 in tokens) and (needed_token2 in tokens):
-                #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
-                player.update_score(side_len+1)
-                player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
+                print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
+                print "side lenth is ", side_len
+                player.update_score(abs(side_len)+1)
+                #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
 
         
 def GameEnd(comp,human):
-    pass
+    print "Game Over!"
+
+def state_score(state,human,comp):
+    #state=[human,comp,GameBoard]
+    human=state[0];
+    comp=state[1];
+    print "scores",state[0].score,state[1].score
+    return state[0].score-state[1].score
+
+def game_over(state,human,comp):
+     #state=[human,comp,GameBoard]
+    num_tokens=len(state[0].placed)+len(state[1].placed);
+    return(num_tokens==(GRIDSIZE**2));
+
+def blank_spots(state,player):
+     #state=[human,comp,GameBoard]
+    return copy.copy(state[2].empty_spots)
+
+def new_state(state,player,move):
+    newState=copy.copy(state);
+    #move is of the form [1,2]
+    #don't change player!!
+    #make copies of everything
+    newState[0]=copy.copy(state[0]);
+    newState[1]=copy.copy(state[1]);
+    newState[2]=copy.copy(state[2]);
+    
+    if state[0].color==player.color: #we're the human
+        newState[0].update(move)
+    if state[1].color==player.color:
+        newState[1].update(move)
+        newState[2].empty_spots.remove(move)
+
+    return newState
+
 
 main()
