@@ -4,7 +4,7 @@ import copy
 from minimax import *
 
 FPS = 30 # frames per second, the general speed of the program
-GRIDSIZE=3
+GRIDSIZE=6
 BOXSIZE=60
 XMARGIN=15
 YMARGIN=XMARGIN
@@ -46,7 +46,7 @@ def main():
     human=player(RED);
     players=[comp,human];
     #initialize ai object
-    ai=AI(comp,human,1,game_over,state_score,blank_spots,new_state)
+    ai=AI(comp,human,2,game_over,state_score,blank_spots,new_state)
 
 
     while True:
@@ -75,13 +75,14 @@ def main():
                 #GameBoard.grid[boxx][boxy]='f' #now it's full
                 #print "you just placed: ",boxx, boxy
                 human.update((boxx,boxy))
-                
+                drawBoard(GameBoard,comp,human)
                 #print state_score([human,comp],human,comp)
                                 #print "empty spots ", GameBoard.empty_spots
                 a=comp_turn(ai,GameBoard,comp,human) #checks for square and updates
+                print '****************'
                 if a==False:
                     GameEnd(comp,human)
-        
+            
                     
                 
         pygame.display.update()
@@ -179,7 +180,8 @@ def comp_turn(ai,GameBoard,comp,human):
 
     #print "before:", comp.score
     score,ai_move=ai.get_move([human,comp,GameBoard]);
-    print ai_move
+    print "computer went to:", ai_move
+
     
     
     GameBoard.empty_spots=orig_empty_spots
@@ -210,16 +212,16 @@ def CheckForFormedSquare(player,(boxx,boxy)):
             needed_token1=(boxx+side_len,boxy)
             needed_token2=(boxx+side_len,boxy+side_len) 
             if (needed_token1 in tokens) and (needed_token2 in tokens):
-                print 'found square:',(boxx,boxy),token,needed_token1,needed_token2 
-                print "side lenth is ", side_len
+                #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2 
+                #print "side lenth is ", side_len
                 player.update_score(abs(side_len)+1)
                 #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
                 
             needed_token1=(boxx-side_len,boxy)
             needed_token2=(boxx-side_len,boxy+side_len)
             if (needed_token1 in tokens) and (needed_token2 in tokens):
-                print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
-                print "side lenth is ", side_len
+                #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
+                #print "side lenth is ", side_len
                 player.update_score(abs(side_len)+1)
                 #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
 
@@ -229,10 +231,9 @@ def GameEnd(comp,human):
 
 def state_score(state,human,comp):
     #state=[human,comp,GameBoard]
-    human=state[0];
-    comp=state[1];
     print "scores",state[0].score,state[1].score
-    return state[0].score-state[1].score
+    return state[1].score-state[0].score
+    #return state[0].score-state[1].score
 
 def game_over(state,human,comp):
      #state=[human,comp,GameBoard]
@@ -244,7 +245,7 @@ def blank_spots(state,player):
     return copy.copy(state[2].empty_spots)
 
 def new_state(state,player,move):
-    newState=copy.copy(state);
+    newState=[0,0,0];#copy.copy(state);
     #move is of the form [1,2]
     #don't change player!!
     #make copies of everything
@@ -256,7 +257,8 @@ def new_state(state,player,move):
         newState[0].update(move)
     if state[1].color==player.color:
         newState[1].update(move)
-        newState[2].empty_spots.remove(move)
+    
+    newState[2].empty_spots.remove(move)
 
     return newState
 
