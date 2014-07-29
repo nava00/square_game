@@ -4,7 +4,7 @@ import copy
 from minimax import *
 
 FPS = 30 # frames per second, the general speed of the program
-GRIDSIZE=6
+GRIDSIZE=4
 BOXSIZE=60
 XMARGIN=15
 YMARGIN=XMARGIN
@@ -42,13 +42,11 @@ def main():
     DISPLAYSURF.fill(BGCOLOR)
     
     #initialize players
-    comp=player(BLUE);
-    human=player(RED);
+    comp=Player(BLUE);
+    human=Player(RED);
     players=[comp,human];
     #initialize ai object
     ai=AI(comp,human,2,game_over,state_score,blank_spots,new_state)
-
-
     while True:
         mouseClicked = False
 
@@ -69,22 +67,16 @@ def main():
             
         #check if an actual box was clicked
         if(all([not boxx==None,not boxy==None,mouseClicked])):
-            #print boxx,boxy #for debugging
             if((boxx,boxy) in GameBoard.empty_spots): #if it's an empty spot
                 GameBoard.empty_spots.remove((boxx,boxy))
-                #GameBoard.grid[boxx][boxy]='f' #now it's full
-                #print "you just placed: ",boxx, boxy
                 human.update((boxx,boxy))
                 drawBoard(GameBoard,comp,human)
-                #print state_score([human,comp],human,comp)
-                                #print "empty spots ", GameBoard.empty_spots
                 a=comp_turn(ai,GameBoard,comp,human) #checks for square and updates
-                print '****************'
                 if a==False:
-                    GameEnd(comp,human)
-            
-                    
-                
+                    GameEnd(comp,human,GameBoard)
+                    comp=Player(BLUE);
+                    human=Player(RED);
+                    GameBoard=Board();
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
@@ -114,14 +106,25 @@ def drawBoard(GameBoard,comp,human):
     for player in (human,comp):
         for blob_loc in player.placed:
             pygame.draw.circle(DISPLAYSURF, player.color, getPixelAtBox(*blob_loc), BOXSIZE/2, 0)
+    #draw the squares, if there are any
+    for player in (human,comp):
+        for sqnum,square in enumerate(player.squares):
+            if(sqnum>len(player.squares)-2): #only draw the last two squares
+                offset=square[-1] #so there's not too much overlap
+                dark_color=[int(val/3+2*abs(offset)) for val in player.color]#slightly diff colors
+                square_pts=[(getPixelAtBox(*pt)[0]+offset,getPixelAtBox(*pt)[1]+offset) for pt in square[:-1]]
+                pygame.draw.polygon(DISPLAYSURF,dark_color,square_pts,len(player.squares)-sqnum+2)
+            #print "drew the square", square
 
-class player(object):
+
+class Player(object):
     def __init__(self,color):
         self.placed=[] #placed tokens, a list of tuples (row,column)
+        self.squares=[];
         self.score=0;
         self.color=color
     def __copy__(self):
-        new_guy=player(self.color)
+        new_guy=Player(self.color)
         new_guy.placed=copy.deepcopy(self.placed)
         new_guy.score=copy.deepcopy(self.score)
         return new_guy
@@ -178,27 +181,20 @@ def comp_turn(ai,GameBoard,comp,human):
     #store old gameboard
     orig_empty_spots=copy.deepcopy(GameBoard.empty_spots)
 
-    #print "before:", comp.score
     score,ai_move=ai.get_move([human,comp,GameBoard]);
-    print "computer went to:", ai_move
-
-    
-    
+    #print "computer went to:", ai_move
     GameBoard.empty_spots=orig_empty_spots
-    
-    
     comp.update(ai_move)    
-     
     GameBoard.empty_spots.remove(ai_move)
-    
-    #print "after:", comp.score
+    if(len(GameBoard.empty_spots)==0):
+        return False
     return True
 
 
 def CheckForFormedSquare(player,(boxx,boxy)):
     #just do this naively
     tokens=player.placed[:] #list of tokens
-    print player.color," proposed move:",(boxx,boxy)
+    #print player.color," proposed move:",(boxx,boxy)
     for token in tokens:
         #check for vertical line
         if(token[0]==boxx): #on the same same vertical value
@@ -215,23 +211,58 @@ def CheckForFormedSquare(player,(boxx,boxy)):
                 #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2 
                 #print "side lenth is ", side_len
                 player.update_score(abs(side_len)+1)
-                #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
+                offset=random.randrange(-BOXSIZE/5, BOXSIZE/5)
+                player.squares.append(((boxx,boxy),token,needed_token2,needed_token1,offset))
                 
             needed_token1=(boxx-side_len,boxy)
             needed_token2=(boxx-side_len,boxy+side_len)
             if (needed_token1 in tokens) and (needed_token2 in tokens):
                 #print 'found square:',(boxx,boxy),token,needed_token1,needed_token2
                 #print "side lenth is ", side_len
+                offset=random.randrange(-BOXSIZE/10, BOXSIZE/10)
                 player.update_score(abs(side_len)+1)
-                #player.squares.append(((boxx,boxy),token,needed_token1,needed_token2))
+                player.squares.append(((boxx,boxy),token,needed_token2,needed_token1,offset))
 
         
-def GameEnd(comp,human):
-    print "Game Over!"
+def GameEnd(comp,human,GameBoard):
+    NewGame=False;
+    while not NewGame:
+        for event in pygame.event.get(): # event handling loop
+            if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
+                pygame.quit()
+                sys.exit()
+            elif event.type == MOUSEMOTION:
+                mousex, mousey = event.pos
+            elif event.type == MOUSEBUTTONUP:
+                mousex, mousey = event.pos
+                mouseClicked = True
+            elif event.type == KEYUP and event.key ==121:
+                NewGame=True;
+
+        #draw GameOver Word        
+        DISPLAYSURF.fill(BGCOLOR)
+        drawBoard(GameBoard,comp,human)
+        #draw "game over" and "play again Y/N"
+        FontObj=pygame.font.SysFont('freesanbold.ttf',BOXSIZE*3/4)
+        OverSurf=FontObj.render("Game Over", True, (0,0,0))
+        Overrect=OverSurf.get_rect()
+        Overrect.center=(XMARGIN+GRIDSIZE*BOXSIZE/2,TOPMARGIN+GRIDSIZE*BOXSIZE/2)
+        DISPLAYSURF.blit(OverSurf,Overrect)
+        FontObj=pygame.font.SysFont('freesanbold.ttf',BOXSIZE*1/2)
+        OverSurf=FontObj.render("again? (y/n)", True, (0,0,0))
+        Overrect=OverSurf.get_rect()
+        Overrect.center=(XMARGIN+GRIDSIZE*BOXSIZE/2,TOPMARGIN+GRIDSIZE*BOXSIZE/2+BOXSIZE/3)
+        DISPLAYSURF.blit(OverSurf,Overrect)
+
+        pygame.display.update()
+        FPSCLOCK.tick(FPS)
+    return True;
+        
+
 
 def state_score(state,human,comp):
     #state=[human,comp,GameBoard]
-    print "scores",state[0].score,state[1].score
+    #print "scores",state[0].score,state[1].score
     return state[1].score-state[0].score
     #return state[0].score-state[1].score
 
@@ -247,7 +278,7 @@ def blank_spots(state,player):
 def new_state(state,player,move):
     newState=[0,0,0];#copy.copy(state);
     #move is of the form [1,2]
-    #don't change player!!
+    
     #make copies of everything
     newState[0]=copy.copy(state[0]);
     newState[1]=copy.copy(state[1]);
