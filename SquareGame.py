@@ -4,11 +4,12 @@ import copy
 from minimax import *
 
 FPS = 30 # frames per second, the general speed of the program
-GRIDSIZE=4
+GRIDSIZE=7
 BOXSIZE=60
 XMARGIN=15
 YMARGIN=XMARGIN
 TOPMARGIN=BOXSIZE*2+YMARGIN
+DEPTH=2
 
 WINDOWWIDTH =BOXSIZE*GRIDSIZE+2*XMARGIN  # size of window's width in pixels
 WINDOWHEIGHT = BOXSIZE*GRIDSIZE+YMARGIN+TOPMARGIN # size of windows' height in pixels
@@ -46,7 +47,7 @@ def main():
     human=Player(RED);
     players=[comp,human];
     #initialize ai object
-    ai=AI(comp,human,2,game_over,state_score,blank_spots,new_state)
+    ai=AI(comp,human,DEPTH,game_over,state_score,blank_spots,new_state)
     while True:
         mouseClicked = False
 
@@ -111,7 +112,7 @@ def drawBoard(GameBoard,comp,human):
         for sqnum,square in enumerate(player.squares):
             if(sqnum>len(player.squares)-2): #only draw the last two squares
                 offset=square[-1] #so there's not too much overlap
-                dark_color=[int(val/3+2*abs(offset)) for val in player.color]#slightly diff colors
+                dark_color=[int(val/2+2*abs(offset)) for val in player.color]#slightly diff colors
                 square_pts=[(getPixelAtBox(*pt)[0]+offset,getPixelAtBox(*pt)[1]+offset) for pt in square[:-1]]
                 pygame.draw.polygon(DISPLAYSURF,dark_color,square_pts,len(player.squares)-sqnum+2)
             #print "drew the square", square
@@ -251,7 +252,7 @@ def GameEnd(comp,human,GameBoard):
         FontObj=pygame.font.SysFont('freesanbold.ttf',BOXSIZE*1/2)
         OverSurf=FontObj.render("again? (y/n)", True, (0,0,0))
         Overrect=OverSurf.get_rect()
-        Overrect.center=(XMARGIN+GRIDSIZE*BOXSIZE/2,TOPMARGIN+GRIDSIZE*BOXSIZE/2+BOXSIZE/3)
+        Overrect.center=(XMARGIN+GRIDSIZE*BOXSIZE/2,TOPMARGIN+GRIDSIZE*BOXSIZE/2+BOXSIZE)
         DISPLAYSURF.blit(OverSurf,Overrect)
 
         pygame.display.update()
